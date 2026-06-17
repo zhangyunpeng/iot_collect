@@ -110,3 +110,29 @@ def delete_modbus_offline(record_id: int) -> bool:
             cur.close()
         if conn:
             conn.close()
+
+def batch_delete_modbus_offline(id_list: list[int]) -> bool:
+    """批量删除多条离线缓存记录"""
+    if not id_list:
+        return True
+
+    conn = None
+    cur = None
+    try:
+        conn = get_db_conn()
+        cur = conn.cursor()
+        # 生成对应数量的 ? 占位符
+        placeholders = ",".join(["?"] * len(id_list))
+        sql = f"DELETE FROM modbus_offline WHERE id IN ({placeholders})"
+        cur.execute(sql, id_list)
+        conn.commit()
+        print(f"✅ 批量删除成功，共删除 {cur.rowcount} 条记录")
+        return True
+    except Exception as e:
+        print(f"❌ 批量删除离线记录失败 ids={id_list}: {e}")
+        return False
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()

@@ -5,7 +5,7 @@ from typing import List, Dict
 from core.modbus_long_client import ModbusLongClient
 from core.data_queue import LocalDataQueue
 from core.mqtt_publish import MqttPublisher
-from core.sqlite_helper import modbus_to_sqlite, query_modbus_offline, delete_modbus_offline
+from core.sqlite_helper import modbus_to_sqlite, query_modbus_offline, batch_delete_modbus_offline
 from config.setting import settings
 import os
 import queue
@@ -100,6 +100,8 @@ class ModbusCollectService:
                 data_list = query_modbus_offline()
                 if not data_list:
                     continue
+
+                delete_ids = []
                 for row in data_list:
                     record_id = row["id"]
                     msg = json.loads(row['json_content'])
@@ -108,10 +110,13 @@ class ModbusCollectService:
                     if not ok:
                         print(f"⚠️ 写入本地队列失败，暂不删除离线记录 id={record_id}")
                         continue
+                    delete_ids.append(record_id)
+                    # # 入队成功，删除sqlite本条缓存
+                    # delete_modbus_offline(record_id)
+                    # print(f"sqlite to local queue success, delete id={record_id}: {msg}")
 
-                    # 入队成功，删除sqlite本条缓存
-                    delete_modbus_offline(record_id)
-                    print(f"sqlite to local queue success, delete id={record_id}: {msg}")
+                if delete_ids:
+                    batch_delete_modbus_offline(delete_ids)
             except Exception as e:
                 print(f"sqlite consumer write local queue : {e}")
             time.sleep(10)
