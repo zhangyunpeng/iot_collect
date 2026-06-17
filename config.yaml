@@ -1,0 +1,16 @@
+mqtt:
+  host: "host.docker.internal"
+#  host: "emqx"
+  port: 11883
+  topic: "/test/normal"
+
+modbus:
+  host: "host.docker.internal"
+#  host: "modbus-sim"
+  port: 5020
+  timeout: 5
+
+opcua:
+#  url: "opc.tcp://172.24.216.216:4840"
+  url: "opc.tcp://opcua-sim:4840"
+  collect_interval: 5

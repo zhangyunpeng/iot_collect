@@ -1,0 +1,7 @@
+pyyaml
+paho-mqtt
+uvicorn[standard]
+fastapi
+asyncua==1.1.8
+nacos-sdk-python
+pymodbus
