@@ -4,7 +4,7 @@ import threading
 from typing import Dict, Any
 
 class LocalDataQueue:
-    def __init__(self, max_size:int = 100):
+    def __init__(self, max_size:int = 10000):
         self.queue = queue.Queue(maxsize=max_size)
         self.max_size = max_size
         self._monitor_task: asyncio.Task | None = None
