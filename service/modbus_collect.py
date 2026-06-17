@@ -5,9 +5,11 @@ from typing import List, Dict
 from core.modbus_long_client import ModbusLongClient
 from core.data_queue import LocalDataQueue
 from core.mqtt_publish import MqttPublisher
+from core.sqlite_helper import modbus_to_sqlite, query_modbus_offline, delete_modbus_offline
 from config.setting import settings
 import os
 import queue
+import json
 
 mqtt_cfg = settings.mqtt
 
@@ -83,12 +85,40 @@ class ModbusCollectService:
             # 发送失败重新入队重试
             ok = mqtt_pub.publish(msg)
             if not ok:
-                local_queue.enqueue(msg)
-                time.sleep(0.3)
+                modbus_to_sqlite(int(time.time()), json.dumps(msg))
 
     def start_mqtt_consumer(self):
         """启动MQTT消费后台线程"""
         t = threading.Thread(target=self.mqtt_queue_consumer_thread, daemon=True)
+        t.start()
+
+    def sqlite_consumer_thread(self):
+        """独立线程：消费本地sqlite，调用MQTT发布"""
+        print("🚀 SQLite消费线程启动")
+        while True:
+            try:
+                data_list = query_modbus_offline()
+                if not data_list:
+                    continue
+                for row in data_list:
+                    record_id = row["id"]
+                    msg = json.loads(row['json_content'])
+                    # 写入全局本地队列
+                    ok = local_queue.enqueue(msg)
+                    if not ok:
+                        print(f"⚠️ 写入本地队列失败，暂不删除离线记录 id={record_id}")
+                        continue
+
+                    # 入队成功，删除sqlite本条缓存
+                    delete_modbus_offline(record_id)
+                    print(f"sqlite to local queue success, delete id={record_id}: {msg}")
+            except Exception as e:
+                print(f"sqlite consumer write local queue : {e}")
+            time.sleep(10)
+
+    def start_sqlite_consumer(self):
+        """启动SQLite消费后台线程"""
+        t = threading.Thread(target=self.sqlite_consumer_thread, daemon=True)
         t.start()
 
     async def close_all_devices(self):
@@ -119,6 +149,10 @@ async def run():
 
     # 5. 启动独立MQTT消费线程（拉队列发mqtt）
     collect_srv.start_mqtt_consumer()
+
+    # 6. 启动sqlite数据处理线程
+    collect_srv.start_sqlite_consumer()
+
 
     print("\n===== 全部服务初始化完成，开始采集 =====")
     try:
