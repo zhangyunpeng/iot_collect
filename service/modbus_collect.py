@@ -54,14 +54,27 @@ class ModbusCollectService:
         while not dev._closed:
             reg_data = await dev.read_holding(addr=0, count=10)
             if reg_data is not None:
-                # 组装上报报文
+                # regs = reg_data.registers
+                # 还原小数
+                temp = round(reg_data[0] / 10.0, 1)
+                hum = round(reg_data[1] / 10.0, 1)
+                status = reg_data[2]
+
                 msg = {
-                    "device_ip": dev.host,
-                    "slave_id": dev.slave_id,
-                    "reg_start": 0,
-                    "data": reg_data,
-                    "timestamp": int(time.time())
+                    "dev_id": dev.host,
+                    "temp": temp,
+                    "hum": hum,
+                    "status": status
                 }
+
+                # 组装上报报文
+                # msg = {
+                #     "device_ip": dev.host,
+                #     "slave_id": dev.slave_id,
+                #     "reg_start": 0,
+                #     "data": reg_data,
+                #     "timestamp": int(time.time())
+                # }
                 # 写入全局本地队列
                 local_queue.enqueue(msg)
                 print(f"queue insert : {msg}")
